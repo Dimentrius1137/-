@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <style>
+        td{
+            border: 1px solid black;
+        }
+    </style>
+</head>
+<body>
+    <label for="search">Поиск</label><input type="text" id="search">
+    <button class="ratingSort">Рейтинг</button>
+    <button class="registationDateSort">Дата регистрации</button>
+    <button class="clearSort">Очистить</button>
+    <table class="table">
+        <caption>
+
+            <th>Имя пользователя</th>
+            <th>E-mail</th>
+            <th>Дата регистрации</th>
+            <th>Рейтинг</th>
+        </caption>
+        <div class="cells"></div>
+      </table>
+      <button class="prev" disabled>Предыдущая</button>
+      <button class="next">Следующая</button>
+    <script>
+        'use strict'
+        const url = "https://5ebbb8e5f2cfeb001697d05c.mockapi.io/users";
+        const table = document.querySelector('.table');
+        const table__headers = "<caption><th>Имя пользователя</th><th>E-mail</th><th>Дата регистрации</th><th>Рейтинг</th></caption>"
+
+        const prevBtn = document.querySelector('.prev');
+        const nextBtn = document.querySelector('.next');
+
+        const searchField = document.getElementById('search');
+
+        const ratingSortBtn = document.querySelector('.ratingSort');
+        const regDateSortBtn = document.querySelector('.registationDateSort');
+        const clearSortBtn = document.querySelector('.clearSort');
+
+        const removeBtn = document.querySelectorAll('.remove');
+        //получение данных 
+        async function GetData(){
+            const data = await fetch(url);
+            const usersList = await data.json()
+            return usersList;
+        }
+        
+        //Создание таблицы
+        function CreateCells(args){
+
+            const row = document.createElement('tr');
+            row.classList.add('data_row')
+            for(let arg in args)
+            {
+                const cell = document.createElement('td');
+                if(arg !== 'id')
+                {
+                    cell.innerHTML = args[arg];
+                    row.appendChild(cell);  
+                }
+                if(arg === 'registration_date')
+                {
+                    cell.innerHTML = new Date(args[arg]).toLocaleDateString('ru-RU', {day: 'numeric', month: 'numeric', year: '2-digit'});
+                }
+
+            }
+            const removeBtn= document.createElement('button');
+            removeBtn.classList.add('remove')
+            removeBtn.innerHTML = `Удалить`
+            row.appendChild(removeBtn);
+            table.appendChild(row);     
+        }
+
+        let table__rows = GetData();
+
+        //отрисовка таблицы
+        async function Render(counter){
+            const visible__rows = await table__rows;
+            for(let i = 0; i < visible__rows.length; i++)
+            {
+                CreateCells(visible__rows[i]);
+            }
+
+            const rows = table.querySelectorAll('.data_row');
+            for(let i = 0; i < rows.length; i++)
+            {
+                rows[i].style.display = "none";
+            }
+  
+            for(let i = counter; i < counter + 5; i++)
+            {
+                if(rows[i] === undefined)
+                {
+                    break;
+                }
+                rows[i].style.display = 'table-row'
+            }
+        }
+        //альтернативный вариант без создания всех элементов стразу:
+
+        // async function Render(counter){
+        //     const visible__rows = await table__rows;
+        //     let number = 0;
+
+        //     for(let i = counter; i < counter + 5; i++)
+        //     {
+        //         CreateCells(visible__rows[i], number++)
+
+        //     }
+        // } 
+
+        let count = 0;
+        Render(count)
+
+
+        //пагинация (переключение страниц)
+        nextBtn.addEventListener('click', function() {
+            prevBtn.disabled = false;
+            count+=5;
+            if(count > 15)
+            {
+                this.disabled = true
+            }
+            table.innerHTML = table__headers
+            Render(count)
+        })
+
+        prevBtn.addEventListener('click', function() {
+            nextBtn.disabled = false
+            count-=5;
+
+            if(count <= 0)
+            {
+                prevBtn.disabled = true;
+            }
+            table.innerHTML = table__headers
+            Render(count)
+
+        })
+        
+        //поиск
+        searchField.addEventListener('input', async function() {
+            const res = await Search(this.value)
+            for(let i = 0; i < res.length; i++)
+            {
+                CreateCells(res[i]);
+            }
+            if(this.value == "")
+            {
+                table.innerHTML = table__headers;
+                Render(count)
+            }
+         
+        })
+        async function Search(value){
+            const search__rows = await table__rows;
+            table.innerHTML = table__headers;
+
+            const searchResult = search__rows.filter((field) => {
+                return field.email.toLowerCase().startsWith(value.toLowerCase()) || field.username.toLowerCase().startsWith(value.toLowerCase())    
+                
+            })
+
+            return searchResult;
+        }
+        
+        //Сортировки
+        //Для сортировки я использовал алгоритм сортировки выборкой
+        async function Sort(arr, property){
+            for(let i = 0; i < arr.length; i++)
+            {
+                let min = i;
+                for(let j = i; j < arr.length; j++)
+                {
+                    if(arr[min][property] > arr[j][property])
+                    {
+                        min = j;
+                    }
+                }
+                let prev = arr[i];
+                arr[i] = arr[min];
+                arr[min] = prev;
+            }
+            return arr;
+        }
+        //форматирование дат
+        function DateSorting(userDate){
+            let currentFormatDates = userDate.map((el) => {
+                el.registration_date = Number(new Date(el.registration_date).toLocaleDateString().split('.').reverse().join(''));
+            return el;     
+        })
+
+        Sort(currentFormatDates, "registration_date")
+
+        let sortedByDate = currentFormatDates.map((el) => {
+            let sortedEl = el.registration_date.toString().split('');
+            const year = sortedEl.toSpliced(4, 4);
+            const month = sortedEl.toSpliced(0, 4).toSpliced(2, 2);
+            const day = sortedEl.toSpliced(0, 6);
+
+            el.registration_date = year.join('') + "." + month.join('') + "." + day.join('');  
+                return el
+            })
+            return sortedByDate
+        }
+
+    //сортировки по дате 
+    async function SortDate(){
+        table.innerHTML = table__headers;
+        table__rows = DateSorting(await table__rows)
+        Render(count)
+    }
+    async function SortDateReverse(){
+        table.innerHTML = table__headers;
+        table__rows = DateSorting(await table__rows).reverse();
+        Render(count)
+    }
+
+    //сортировки по рейтинг
+    async function RatingSort() {
+        let sort__rows = await table__rows;
+        table.innerHTML = table__headers;
+        Sort(sort__rows, "rating");
+        Render(count)
+    }
+    async function ReverseRatingSort() {
+        let sort__rows = await table__rows;
+        table.innerHTML = table__headers;
+        const rev = await Sort(sort__rows, "rating");
+        rev.reverse()
+        Render(count)
+    }
+
+    //состояние сортировки от меньшего к большему и наоборот
+    let sortState = false;
+    function ChangeRatingSort(state1, state2) {
+        if (!sortState) {
+            state1();
+        } else {
+            state2();
+        }
+    sortState = !sortState;
+    }
+
+    //переключатели сортировок
+    ratingSortBtn.addEventListener('click', () => {
+        ChangeRatingSort(RatingSort, ReverseRatingSort)
+    }) 
+
+    regDateSortBtn.addEventListener('click', () => {
+        ChangeRatingSort(SortDate, SortDateReverse)
+    })
+    
+    //очистка фильтров
+    let listWithRemoves;
+    clearSortBtn.addEventListener('click', async (el) => {
+        //проверка на наличие удалённых пользователей
+        if(listWithRemoves != undefined)
+        {
+            table__rows = Sort(await listWithRemoves, "id")
+        }
+        else{
+            table__rows = GetData();
+        }
+        table.innerHTML = table__headers;
+        Render(count)
+    }) 
+    
+    //удаление пользователя
+    async function RemoveUser(name){
+        const newUserList = await table__rows;
+        for(let i = 0; i < newUserList.length; i++)
+        {
+            if(newUserList[i].username == name)
+            {   
+                newUserList.splice(i, 1);
+            }
+        }
+        return newUserList;
+    }
+
+    table.addEventListener('click', (btn) => {
+        const targetUser = btn.target;
+        let res = confirm("Вы уверены?")
+        if(targetUser.classList.contains('remove'))
+        {
+            if(res)
+            {
+                listWithRemoves = RemoveUser(targetUser.parentElement.children[0].innerHTML)
+                table.innerHTML = table__headers;
+                Render(count)
+            }
+            else{
+                alert("оки")
+            }
+        }
+
+    })
+    </script>
+</body>
+</html>
