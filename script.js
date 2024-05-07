@@ -54,7 +54,7 @@ function CreateCells(args){
     removeField.classList.add('remove')
     const removeBtn = document.createElement('img');
     removeBtn.classList.add('removeBtn')
-    removeBtn.src = "icons/cancel.svg";
+    removeBtn.src = "icons_elements/cancel.svg";
     removeField.appendChild(removeBtn);
     row.appendChild(removeField);
     table.appendChild(row);     
